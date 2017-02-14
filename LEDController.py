@@ -1,4 +1,4 @@
-# LightingController.py 
+# LEDController.py 
 # Written by Chase Sawyer
 # February 2017
 # Version 0 - Brand new.
@@ -61,12 +61,12 @@ def setup():
 	config = configparser.ConfigParser()
 	try:
 
-		config.read_file(open("LightSettings.ini"))
-		timeout = config.getint('LightSettings', 'Timeout')
-		baudrate = config.getint('LightSettings', 'Baudrate')
-		port = config.get('LightSettings', 'COMPort')
-		log_level = config.get('LightSettings', 'LogLevel')
-		LEDs = config.getint('LightSettings', 'LEDs')
+		config.read_file(open("LEDControllerSettings.ini"))
+		timeout = config.getint('LEDControllerSettings', 'Timeout')
+		baudrate = config.getint('LEDControllerSettings', 'Baudrate')
+		port = config.get('LEDControllerSettings', 'COMPort')
+		log_level = config.get('LEDControllerSettings', 'LogLevel')
+		LEDs = config.getint('LEDControllerSettings', 'LEDs')
 
 		LEDController = LEDController(timeout, port, baudrate, LEDs)
 		LEDController.setupCmdMessenger()
@@ -83,14 +83,14 @@ def setup():
 
 	except FileNotFoundError as e:
 		setup_log(logging.DEBUG)
-		logging.critical("Unable to open \'LightSettings.ini\'. Error Text: {!r}".format(e))
-		print("Critical Error: Unable to open \'LightSettings.ini\'. See log file for details.")
+		logging.critical("Unable to open \'LEDControllerSettings.ini\'. Error Text: {!r}".format(e))
+		print("Critical Error: Unable to open \'LEDControllerSettings.ini\'. See log file for details.")
 		return False
 
 	return True
 
 def setup_log(level):
-	logging.basicConfig(filename='LightingLog.log',
+	logging.basicConfig(filename='LEDControllerLog.log',
 			format='%(asctime)s:%(levelname)s: %(message)s', level=level)
 
 def main():
