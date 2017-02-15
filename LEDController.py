@@ -28,19 +28,20 @@ class LEDController(object):
 		self.port = port
 		self.baudrate = baudrate
 		self.LEDs = LEDs
-		self.c
-		self.cmdMessenger
-
-		commands = [["CMDERROR","s"],
-					["SETCOLORALL","L"],
-					["SETCOLORSINGLE","iL"],
-					["SETCOLORRANGE","iiL"],
-					["SETPATTERNRAINBOW","i"],
-					["SETPATTERNTHEATER","LLi"],
-					["SETPATTERNWIPE","Li"],
-					["SETPATTERNSCANNER","Li"],
-					["SETPATTERNFADE","LLii"],
-					["SETBRIGHTNESSALL","i"]]
+		self.c = None
+		self.cmdMessenger = None
+		self.commands = [["CMDERROR","L"],
+						["SETCOLORALL","L"],
+						["SETCOLORSINGLE","bL"],
+						["SETCOLORRANGE","bbL"],
+						["SETPATTERNRAINBOW","L"],
+						["SETPATTERNTHEATER","LLL"],
+						["SETPATTERNWIPE","LL"],
+						["SETPATTERNSCANNER","LL"],
+						["SETPATTERNFADE","LLIL"],
+						["SETBRIGHTNESSALL","b"],
+						["ARDUINOBUSY","?"],
+						["NOCOMMAND","?"]]
 
 
 
@@ -77,9 +78,9 @@ def setup():
 
 		setup_log(numeric_level)
 
-		print("Using Serial Port: {0}. OK.".format(LEDController.ser.name))
+		print("Using Serial Port: {0}. OK.".format(LEDController.port))
 		logging.info("Program Started with Serial Port: {0}, Timeout: {1}, Baudrate: {2}, Log Level: {3}. Num LEDs set to {4}."\
-			.format(LEDController.ser.name, timeout, baudrate, log_level, LEDs))
+			.format(LEDController.port, timeout, baudrate, log_level, LEDs))
 
 	except FileNotFoundError as e:
 		setup_log(logging.DEBUG)
@@ -98,33 +99,46 @@ def main():
 	# Main control area - interfaces for brightness and color settings
 	if setup():
 		random.seed()
-		j = 1
+		last = 1
 		while(True):
-			LEDController.c.send("SETCOLORALL",0xFF0000)
-			time.sleep(5)
-			LEDController.c.send("SETCOLORRANGE",LEDController.LEDs/3,LEDController.LEDs/3,0x00FF00)
-			time.sleep(5)
-			LEDController.c.send("SETCOLORRANGE",LEDController.LEDs/3*2,LEDController.LEDs/3,0x0000FF)
-			time.sleep(5)
-			for i in range(0,LEDController.LEDs):
-				LEDController.c.send("SETCOLORSINGLE",i,0xAAAAAA)
-				time.sleep(.25)
-				i+=1
-			time.sleep(3)
-			LEDController.c.send("SETPATTERNSCANNER",0xFFFFFF,100)
-			time.sleep(5)
-			LEDController.c.send("SETPATTERNRAINBOW",50)
-			time.sleep(5)
+			receivedCmdSet = LEDController.c.receive()
+			if (receivedCmdSet != None):
+				cmd = receivedCmdSet[0]
+				result = receivedCmdSet[1][0]
+				print(receivedCmdSet)
+				print(cmd)
+				print(result)
+				if (cmd == "ARDUINOBUSY" and result == False):
+					if (last == 2):
+						LEDController.c.send("SETPATTERNRAINBOW",1)
+						ret = LEDController.c.receive()
+						print(ret)
+						last = 1
+					else:
+						LEDController.c.send("SETCOLORALL",0xFFFFFF)
+						ret = LEDController.c.receive()
+						print(ret)
+						last = 2
+			time.sleep(.05)
+
+
+
+			# LEDController.c.send("SETPATTERNRAINBOW",100)
+			# ret = LEDController.c.receive()
+			# print(ret)
+			# time.sleep(0.5)
+			# LEDController.c.send("SETCOLORALL",0xFFFFFF)
+			# ret = LEDController.c.receive()
+			# print(ret)
+			# time.sleep(0.5)
 			# logging.info("Sent Color Data!")
-			else: 
-				pass
 	else:
 		pass
 
 
 def end_program(end_condition):
 	global LEDController
-	LEDController.ser.close()
+	# LEDController.ser.close()
 	print("Complete. {}".format(end_condition))
 	logging.info("Program End.")
 
