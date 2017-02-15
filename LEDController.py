@@ -30,10 +30,10 @@ class LEDController(object):
 		self.LEDs = LEDs
 		self.c = None
 		self.cmdMessenger = None
-		self.commands = [["CMDERROR","L"],
-						["SETCOLORALL","L"],
-						["SETCOLORSINGLE","bL"],
-						["SETCOLORRANGE","bbL"],
+		self.commands = [["CMDERROR","L*"],
+						["SETCOLORALL","LL"],
+						["SETCOLORSINGLE","bLL"],
+						["SETCOLORRANGE","bbLL"],
 						["SETPATTERNRAINBOW","L"],
 						["SETPATTERNTHEATER","LLL"],
 						["SETPATTERNWIPE","LL"],
@@ -101,25 +101,30 @@ def main():
 		random.seed()
 		last = 1
 		while(True):
+			print('checking...')
 			receivedCmdSet = LEDController.c.receive()
+			print('check Complete')
+			print(receivedCmdSet)
 			if (receivedCmdSet != None):
 				cmd = receivedCmdSet[0]
 				result = receivedCmdSet[1][0]
-				print(receivedCmdSet)
-				print(cmd)
-				print(result)
+				# print(receivedCmdSet)
+				# print(cmd)
+				# print(result)
 				if (cmd == "ARDUINOBUSY" and result == False):
 					if (last == 2):
-						LEDController.c.send("SETPATTERNRAINBOW",1)
+						LEDController.c.send("SETPATTERNRAINBOW",5)
 						ret = LEDController.c.receive()
 						print(ret)
 						last = 1
 					else:
-						LEDController.c.send("SETCOLORALL",0xFFFFFF)
+						LEDController.c.send("SETCOLORALL",randint(0x000000, 0xFFFFFF),1)
 						ret = LEDController.c.receive()
 						print(ret)
-						last = 2
-			time.sleep(.05)
+						# last = 2
+			else:
+				print('!')
+			time.sleep(.005)
 
 
 
