@@ -30,7 +30,7 @@ class LEDController(object):
 		self.LEDs = LEDs
 		self.c = None
 		self.cmdMessenger = None
-		self.commands = [["CMDERROR","L*"],
+		self.commands = [["CMDERROR","s"],
 						["SETCOLORALL","LL"],
 						["SETCOLORSINGLE","bLL"],
 						["SETCOLORRANGE","bbLL"],
@@ -40,16 +40,11 @@ class LEDController(object):
 						["SETPATTERNSCANNER","LL"],
 						["SETPATTERNFADE","LLIL"],
 						["SETBRIGHTNESSALL","b"],
+						["SETLEDSOFF","L"],
 						["ARDUINOBUSY","?"],
-						["NOCOMMAND","?"]]
+						["NOCOMMAND","?"],
+						["CMDCONF","L"]]
 
-
-
-	# def setupSer(self):
-	# 	self.ser.timeout = self.timeout
-	# 	self.ser.baudrate = self.baudrate
-	# 	self.ser.port = self.port
-	# 	self.ser.open()
 	
 	def setupCmdMessenger(self):
 		self.cmdMessenger = PyCmdMessenger.ArduinoBoard(self.port, baud_rate=self.baudrate)
@@ -99,9 +94,13 @@ def main():
 	# Main control area - interfaces for brightness and color settings
 	if setup():
 		random.seed()
-		last = 1
+		last = 2
+		brightnessNotSet = True
 		while(True):
+			receivedCmdSet = None
 			print('checking...')
+			while (LEDController.cmdMessenger.comm.in_waiting == 0):
+				time.sleep(0.0)
 			receivedCmdSet = LEDController.c.receive()
 			print('check Complete')
 			print(receivedCmdSet)
@@ -112,19 +111,33 @@ def main():
 				# print(cmd)
 				# print(result)
 				if (cmd == "ARDUINOBUSY" and result == False):
-					if (last == 2):
-						LEDController.c.send("SETPATTERNRAINBOW",5)
+					if (brightnessNotSet):
+						LEDController.c.send("SETBRIGHTNESSALL",10)
+						ret = LEDController.c.receive()
+						print(ret)
+						brightnessNotSet = False
+					elif (last == 2):
+						LEDController.c.send("SETCOLORSINGLE",
+							randint(0, LEDController.LEDs),
+							# 10,
+							randint(0x000000, 0xFFFFFF),
+							2000)
 						ret = LEDController.c.receive()
 						print(ret)
 						last = 1
 					else:
-						LEDController.c.send("SETCOLORALL",randint(0x000000, 0xFFFFFF),1)
+						LEDController.c.send("SETLEDSOFF",
+							# 0x000001,
+							# randint(0x000000, 0xFFFFFF),
+							# randint(0x000000, 0xFFFFFF),
+							# 500,
+							2000)
 						ret = LEDController.c.receive()
 						print(ret)
-						# last = 2
+						last = 2
 			else:
 				print('!')
-			time.sleep(.005)
+			time.sleep(.01)
 
 
 
