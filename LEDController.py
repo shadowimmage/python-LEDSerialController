@@ -121,17 +121,17 @@ def main():
 							randint(0, LEDController.LEDs),
 							# 10,
 							randint(0x000000, 0xFFFFFF),
-							2000)
+							50)
 						ret = LEDController.c.receive()
 						print(ret)
-						last = 1
+						# last = 1
 					else:
 						LEDController.c.send("SETLEDSOFF",
 							# 0x000001,
 							# randint(0x000000, 0xFFFFFF),
 							# randint(0x000000, 0xFFFFFF),
 							# 500,
-							2000)
+							500)
 						ret = LEDController.c.receive()
 						print(ret)
 						last = 2
