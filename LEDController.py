@@ -69,80 +69,80 @@ class LEDController(object):
 
 	# Description
 	def setColorAll(self, color, update_ms):
-		color = constrainColor(color)
+		color = self.constrainColor(color)
 		self.c.send("SETCOLORALL", color, update_ms)
-		getCommandSet('SCA return')
+		self.getCommandSet('SCA return')
 
 	# Description
 	def setColorSingle(self, color, index, update_ms):
-		color = constrainColor(color)
-		index = constrain(index, 0, self.numLEDs)
+		color = self.constrainColor(color)
+		index = self.constrain(index, 0, self.numLEDs)
 		self.c.send("SETCOLORSINGLE", index, color, update_ms)
-		getCommandSet('SCS return')
+		self.getCommandSet('SCS return')
 
 	# Description
-	def setColorRange(self, color, st_index, num, update_ms):
-		color = constrainColor(color)
-		st_index = constrain(st_index, 0, self.numLEDs-1)
-		num = constrain(num, 0, self.numLEDs-st_index)
-		self.c.send("SETCOLORRANGE", st_index, num, color, update_ms)
-		getCommandSet('SCR return')
+	def setColorRange(self, color, st_led, num, update_ms):
+		color = self.constrainColor(color)
+		st_led = self.constrain(st_led, 0, self.numLEDs-1)
+		num = self.constrain(num, 0, self.numLEDs-st_led)
+		self.c.send("SETCOLORRANGE", st_led, num, color, update_ms)
+		self.getCommandSet('SCR return')
 
 	# Description
 	def setPatternRainbow(self, update_ms):
-		self.c.send("SETPATTERNRAINBOW", update_ms)
-		getCommandSet('SPR return')
+		self.c.send("SETPATTERNRAINBOW", max(1, int(update_ms/256)))
+		self.getCommandSet('SPR return')
 
 	# Description
 	def setPatternTheater(self, color1, color2, update_ms):
-		color1 = constrainColor(color1)
-		color2 = constrainColor(color2)
-		self.c.send("SETPATTERNTHEATER", color1, color2, update_ms)
-		getCommandSet('SPT return')
+		color1 = self.constrainColor(color1)
+		color2 = self.constrainColor(color2)
+		self.c.send("SETPATTERNTHEATER", color1, color2, max(1, int(update_ms/self.numLEDs)))
+		self.getCommandSet('SPT return')
 
 	# Description
 	def setPatternWipe(self, color, update_ms):
-		color = constrainColor(color)
-		self.c.send("SETPATTERNWIPE", color, update_ms)
-		getCommandSet('SPW return')
+		color = self.constrainColor(color)
+		self.c.send("SETPATTERNWIPE", color, max(1, int(update_ms/self.numLEDs)))
+		self.getCommandSet('SPW return')
 
 	# Description
 	def setPatternScanner(self, color, update_ms):
-		color = constrainColor(color)
-		self.c.send("SETPATTERNSCANNER", color, update_ms)
-		getCommandSet('SPS return')
+		color = self.constrainColor(color)
+		self.c.send("SETPATTERNSCANNER", color, max(1, int(update_ms/(2*self.numLEDs))))
+		self.getCommandSet('SPS return')
 
 	# Description
 	def setPatternFade(self, color1, color2, steps, update_ms):
-		color1 = constrainColor(color1)
-		color2 = constrainColor(color2)
-		self.c.send("SETPATTERNFADE", color1, color2, steps, update_ms)
-		getCommandSet('SPF return')
+		color1 = self.constrainColor(color1)
+		color2 = self.constrainColor(color2)
+		self.c.send("SETPATTERNFADE", color1, color2, steps, max(1, int(update_ms/steps)))
+		self.getCommandSet('SPF return')
 
 	# Description
 	def setBrightness(self, brightness):
-		brightness = constrain(brightness, 0, 255)
+		brightness = self.constrain(brightness, 0, 255)
 		self.c.send("SETBRIGHTNESSALL", brightness)
-		getCommandSet('Brightness return')
+		self.getCommandSet('Brightness return')
 
 	# Description
 	def setLedsOff(self, update_ms):
 		self.c.send("SETLEDSOFF", update_ms)
-		getCommandSet('SLO return')
+		self.getCommandSet('SLO return')
 
 	# Description
 	def setNoCmd(self, flag=True):
 		self.c.send("NOCOMMAND", flag)
-		getCommandSet('SNC return')
+		self.getCommandSet('SNC return')
 
 	# Description
-	def constrainColor(color):
-		return constrain(color, 0x000000, 0xFFFFFF)
+	def constrainColor(self, color):
+		return self.constrain(color, 0x000001, 0xFFFFFF)
 
 	# Description
-	def constrain(number, minimum, maximum):
+	def constrain(self, number, minimum, maximum):
 		number = min(number, maximum)
-		number = max(number, minumum)
+		number = max(number, minimum)
 		return number
 
 
@@ -195,6 +195,7 @@ def main():
 		pass
 
 def run_demo():
+	global LEDController
 	random.seed()
 	democmd = 0
 	brightnessNotSet = True
@@ -206,40 +207,41 @@ def run_demo():
 			result = receivedCmdSet[1][0]
 			if (cmd == "ARDUINOBUSY" and result == False):
 				if (brightnessNotSet):
+					print("set Brightness 100.")
 					LEDController.setBrightness(100)
 					brightnessNotSet = False
 				elif (democmd == 0):
 					print("Set Color all, red, 2 seconds.")
-					LEDController.setColorAll(0xFFFFFF, 2000)
+					LEDController.setColorAll(0xFF0000, 2000)
 					democmd += 1
-				elif (democmd == 2):
+				elif (democmd == 1):
 					print("Set Color Single, Blue, in the middle, 2 seconds.")
 					LEDController.setColorSingle(0x0000FF, LEDController.numLEDs/2, 2000)
 					democmd += 1
-				elif (democmd == 3):
+				elif (democmd == 2):
 					print("Set Color Range, Green, 1/2 of the strip, 2 seconds.")
-					LEDController.setColorRange(0x00FF00, 0, LEDController.numLEDs/2, 2000)
+					LEDController.setColorRange(0x00FF00, 1, 60, 2000)
 					democmd += 1
-				elif (democmd == 4):
+				elif (democmd == 3):
 					print("Rainbow Pattern, 10 times, 200ms intervals - 2 seconds total.")
 					LEDController.setPatternRainbow(200)
 					demoloop += 1
-					if (demoloop == 10):
+					if (demoloop >= 10):
 						demoloop = 0
 						democmd += 1
-				elif (democmd == 5):
+				elif (democmd == 4):
 					print("Theater Pattern, Black/White, 2 seconds")
 					LEDController.setPatternTheater(0x000000, 0xFFFFFF, 2000)
 					democmd += 1
-				elif (democmd == 6):
+				elif (democmd == 5):
 					print("Wipe Pattern, random color, 200 ms intervals, 10 times")
 					color = randint(0x000000, 0xFFFFFF)
 					LEDController.setPatternWipe(color, 200)
 					demoloop += 1
-					if (demoloop == 10):
+					if (demoloop >= 10):
 						demoloop = 0
 						democmd += 1						
-				elif (democmd == 7):
+				elif (democmd == 6):
 					print("Scanner Pattern, R, G, B, W, 500 ms passes each (4 total passes).")
 					if demoloop == 0:
 						LEDController.setPatternScanner(0xFF0000, 500)
@@ -250,24 +252,24 @@ def run_demo():
 					if demoloop == 3:
 						LEDController.setPatternScanner(0xFFFFFF, 500)
 					demoloop += 1
-					if (demoloop == 4):
-						demploop = 0
-						democmd += 1
-				elif (democmd == 8):
-					print("Fade Pattern, R, G, B, W, to black, 500 ms passes each (4 total passes).")
-					if demoloop == 0:
-						LEDController.setPatternFade(0xFF0000, 0x000000, 30, 500)
-					if demoloop == 1:
-						LEDController.setPatternFade(0x00FF00, 0x000000, 30, 500)
-					if demoloop == 2:
-						LEDController.setPatternFade(0x0000FF, 0x000000, 30, 500)
-					if demoloop == 3:
-						LEDController.setPatternFade(0xFFFFFF, 0x000000, 30, 500)
-					demoloop += 1
-					if (demoloop == 4):
+					if (demoloop >= 4):
 						demoloop = 0
 						democmd += 1
-				elif (democmd == 9):
+				elif (democmd == 7):
+					print("Fade Pattern, R, G, B, W, to black, 500 ms passes each (4 total passes).")
+					if demoloop == 0:
+						LEDController.setPatternFade(0xFF0000, 0x000000, 5, 500)
+					if demoloop == 1:
+						LEDController.setPatternFade(0x00FF00, 0x000000, 5, 500)
+					if demoloop == 2:
+						LEDController.setPatternFade(0x0000FF, 0x000000, 5, 500)
+					if demoloop == 3:
+						LEDController.setPatternFade(0xFFFFFF, 0x000000, 5, 500)
+					demoloop += 1
+					if (demoloop >= 4):
+						demoloop = 0
+						democmd += 1
+				elif (democmd == 8):
 					print("Set LEDs off - 2 seconds.")
 					LEDController.setLedsOff(2000)
 					democmd = 0
