@@ -6,16 +6,13 @@
 # INSTRUCTIONS FOR USE: 
 
 import PyCmdMessenger # for communication with Arduino
-from tkinter import * # see knowpapa.com/cchoser/
-from tkinter.colorchooser import askcolor
 import random #for testing protocol / led colors
 from random import randint
 import serial # I/O communication with Arduino controller
-# import sys # thought was needed for keyboard interrupt
 import signal # Capture keyboard interrupt
 import logging # Program logging
 import configparser # Reading / writing configurations
-import time
+import time # for delays, etc.
 
 # LEDController needs to be global so that stop() can access it 
 # at any time when the keyboard interrupt is triggered.
@@ -23,11 +20,12 @@ LEDController = object
 
 class LEDController(object):
 
-	def __init__(self, timeout, port, baudrate, LEDs):
+	def __init__(self, timeout, port, baudrate, LEDs, brightness):
 		self.timeout = timeout
 		self.port = port
 		self.baudrate = baudrate
 		self.numLEDs = LEDs
+		self.brightness = brightness
 		self.c = None
 		self.cmdMessenger = None
 		self.commands = [["CMDERROR","s"],
@@ -159,8 +157,9 @@ def setup():
 		port = config.get('LEDControllerSettings', 'COMPort')
 		log_level = config.get('LEDControllerSettings', 'LogLevel')
 		LEDs = config.getint('LEDControllerSettings', 'LEDs')
+		brightness = config.getint('LEDControllerSettings', 'Brightness')
 
-		LEDController = LEDController(timeout, port, baudrate, LEDs)
+		LEDController = LEDController(timeout, port, baudrate, LEDs, brightness)
 		LEDController.setupCmdMessenger()
 
 		numeric_level = getattr(logging, log_level.upper(), None)
@@ -190,10 +189,34 @@ def main():
 	# Main control area - interfaces for brightness and color settings
 	if setup():
 		# do the demo patterns program indefinitely.
-		run_demo()
+		# run_demo()
+		pre_run_commands()
+		while(True):
+			if (arduino_ready('main')):
+				LEDController.setColorAll(0xfcff56, 2000)
 	else:
 		pass
 
+def pre_run_commands():
+	global LEDController
+	if (arduino_ready('prerun')):
+		LEDController.setBrightness(LEDController.brightness)
+
+def arduino_ready(debug_trace):
+	receivedCmdSet = LEDController.getCommandSet(debug_trace)
+	if (receivedCmdSet != None):
+		cmd = receivedCmdSet[0]
+		result = receivedCmdSet[1][0]
+		return (cmd == "ARDUINOBUSY" and result == False)
+	else:
+		return False
+
+# Demo code that will go through all the possible command combinations that
+# are exposed from the LEDController class and are implemented in the 
+# Arduino driver for the LED strips.
+# Loops continuously - won't return - use as a test of the LED strip and 
+# communication between host computer and the attached Arduino before moving
+# onto more complex behaviour.
 def run_demo():
 	global LEDController
 	random.seed()
@@ -201,78 +224,74 @@ def run_demo():
 	brightnessNotSet = True
 	demoloop = 0
 	while(True):
-		receivedCmdSet = LEDController.getCommandSet('main')
-		if (receivedCmdSet != None):
-			cmd = receivedCmdSet[0]
-			result = receivedCmdSet[1][0]
-			if (cmd == "ARDUINOBUSY" and result == False):
-				if (brightnessNotSet):
-					print("set Brightness 100.")
-					LEDController.setBrightness(100)
-					brightnessNotSet = False
-				elif (democmd == 0):
-					print("Set Color all, red, 2 seconds.")
-					LEDController.setColorAll(0xFF0000, 2000)
+		if (arduino_ready('main')):
+			if (brightnessNotSet):
+				print("set Brightness 100.")
+				LEDController.setBrightness(100)
+				brightnessNotSet = False
+			elif (democmd == 0):
+				print("Set Color all, red, 2 seconds.")
+				LEDController.setColorAll(0xFF0000, 2000)
+				democmd += 1
+			elif (democmd == 1):
+				print("Set Color Single, Blue, in the middle, 2 seconds.")
+				LEDController.setColorSingle(0x0000FF, LEDController.numLEDs/2, 2000)
+				democmd += 1
+			elif (democmd == 2):
+				print("Set Color Range, Green, 1/2 of the strip, 2 seconds.")
+				LEDController.setColorRange(0x00FF00, 1, 60, 2000)
+				democmd += 1
+			elif (democmd == 3):
+				print("Rainbow Pattern, 10 times, 200ms intervals - 2 seconds total.")
+				LEDController.setPatternRainbow(200)
+				demoloop += 1
+				if (demoloop >= 10):
+					demoloop = 0
 					democmd += 1
-				elif (democmd == 1):
-					print("Set Color Single, Blue, in the middle, 2 seconds.")
-					LEDController.setColorSingle(0x0000FF, LEDController.numLEDs/2, 2000)
+			elif (democmd == 4):
+				print("Theater Pattern, Black/White, 6 seconds")
+				LEDController.setPatternTheater(0x000000, 0xFFFFFF, 6000)
+				democmd += 1
+			elif (democmd == 5):
+				print("Wipe Pattern, random color, 250 ms intervals, 10 times")
+				color = randint(0x000000, 0xFFFFFF)
+				LEDController.setPatternWipe(color, 250)
+				demoloop += 1
+				if (demoloop >= 10):
+					demoloop = 0
+					democmd += 1						
+			elif (democmd == 6):
+				print("Scanner Pattern, R, G, B, W, 500 ms passes each (4 total passes).")
+				if demoloop == 0:
+					LEDController.setPatternScanner(0xFF0000, 500)
+				if demoloop == 1:
+					LEDController.setPatternScanner(0x00FF00, 500)
+				if demoloop == 2:
+					LEDController.setPatternScanner(0x0000FF, 500)
+				if demoloop == 3:
+					LEDController.setPatternScanner(0xFFFFFF, 500)
+				demoloop += 1
+				if (demoloop >= 4):
+					demoloop = 0
 					democmd += 1
-				elif (democmd == 2):
-					print("Set Color Range, Green, 1/2 of the strip, 2 seconds.")
-					LEDController.setColorRange(0x00FF00, 1, 60, 2000)
+			elif (democmd == 7):
+				print("Fade Pattern, R, G, B, W, to black, 500 ms passes each (4 total passes).")
+				if demoloop == 0:
+					LEDController.setPatternFade(0xFF0000, 0x000000, 30, 500)
+				if demoloop == 1:
+					LEDController.setPatternFade(0x00FF00, 0x000000, 30, 500)
+				if demoloop == 2:
+					LEDController.setPatternFade(0x0000FF, 0x000000, 30, 500)
+				if demoloop == 3:
+					LEDController.setPatternFade(0xFFFFFF, 0x000000, 30, 500)
+				demoloop += 1
+				if (demoloop >= 4):
+					demoloop = 0
 					democmd += 1
-				elif (democmd == 3):
-					print("Rainbow Pattern, 10 times, 200ms intervals - 2 seconds total.")
-					LEDController.setPatternRainbow(200)
-					demoloop += 1
-					if (demoloop >= 10):
-						demoloop = 0
-						democmd += 1
-				elif (democmd == 4):
-					print("Theater Pattern, Black/White, 2 seconds")
-					LEDController.setPatternTheater(0x000000, 0xFFFFFF, 2000)
-					democmd += 1
-				elif (democmd == 5):
-					print("Wipe Pattern, random color, 200 ms intervals, 10 times")
-					color = randint(0x000000, 0xFFFFFF)
-					LEDController.setPatternWipe(color, 200)
-					demoloop += 1
-					if (demoloop >= 10):
-						demoloop = 0
-						democmd += 1						
-				elif (democmd == 6):
-					print("Scanner Pattern, R, G, B, W, 500 ms passes each (4 total passes).")
-					if demoloop == 0:
-						LEDController.setPatternScanner(0xFF0000, 500)
-					if demoloop == 1:
-						LEDController.setPatternScanner(0x00FF00, 500)
-					if demoloop == 2:
-						LEDController.setPatternScanner(0x0000FF, 500)
-					if demoloop == 3:
-						LEDController.setPatternScanner(0xFFFFFF, 500)
-					demoloop += 1
-					if (demoloop >= 4):
-						demoloop = 0
-						democmd += 1
-				elif (democmd == 7):
-					print("Fade Pattern, R, G, B, W, to black, 500 ms passes each (4 total passes).")
-					if demoloop == 0:
-						LEDController.setPatternFade(0xFF0000, 0x000000, 5, 500)
-					if demoloop == 1:
-						LEDController.setPatternFade(0x00FF00, 0x000000, 5, 500)
-					if demoloop == 2:
-						LEDController.setPatternFade(0x0000FF, 0x000000, 5, 500)
-					if demoloop == 3:
-						LEDController.setPatternFade(0xFFFFFF, 0x000000, 5, 500)
-					demoloop += 1
-					if (demoloop >= 4):
-						demoloop = 0
-						democmd += 1
-				elif (democmd == 8):
-					print("Set LEDs off - 2 seconds.")
-					LEDController.setLedsOff(2000)
-					democmd = 0
+			elif (democmd == 8):
+				print("Set LEDs off - 2 seconds.")
+				LEDController.setLedsOff(2000)
+				democmd = 0
 		else:
 			print('!')
 		time.sleep(.01)
