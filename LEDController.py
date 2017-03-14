@@ -1,3 +1,4 @@
+#! python3
 # LEDController.py 
 # Written by Chase Sawyer
 # February 2017
@@ -13,6 +14,41 @@ import signal # Capture keyboard interrupt
 import logging # Program logging
 import configparser # Reading / writing configurations
 import time # for delays, etc.
+
+# UI stuff #####################################################################
+from kivy.app import App
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.boxlayout import BoxLayout
+from kivy.properties import ObjectProperty, ListProperty
+from kivy.uix.popup import Popup
+from kivy.uix.colorpicker import ColorPicker
+
+class ControllerUIApp(App):
+	def build(self):
+		return ControllerUI()
+
+class ControllerUI(GridLayout):
+	def openColorPicker(self):
+		color_picker_window = ColorPickerWindow()
+		color_picker_window.open()
+
+	def getColorFromPicker(self):
+		pass
+
+
+class ColorPickerWindow(Popup):
+	def close(self):
+		for child in self.children:
+			print(child)
+		# color = self.cp.color
+		# print(str(color))
+		self.printColor(self.cp.value)
+
+	def printColor(instance, value):
+		print("HEX: ", str(instance.hex_color))
+
+
+
 
 # LEDController needs to be global so that stop() can access it 
 # at any time when the keyboard interrupt is triggered.
@@ -186,6 +222,7 @@ def setup_log(level):
 
 def main():
 	global LEDController
+	ControllerUIApp().run()
 	# Main control area - interfaces for brightness and color settings
 	if setup():
 		# do the demo patterns program indefinitely.
@@ -197,11 +234,16 @@ def main():
 	else:
 		pass
 
+# Runs once from main once setup is complete. Generally can be used to set brightness as
+# a global before going into the main loop of the system - will also be used to set up any 
+# early parameters for UI before going into the main control loop, eg. Networking, alerts, etc.
 def pre_run_commands():
 	global LEDController
 	if (arduino_ready('prerun')):
 		LEDController.setBrightness(LEDController.brightness)
 
+# Handles the gathering of the polling status from the connected Arduino / LED driver.
+# debug_trace takes a string that gets passed to the logging module.
 def arduino_ready(debug_trace):
 	receivedCmdSet = LEDController.getCommandSet(debug_trace)
 	if (receivedCmdSet != None):
@@ -217,6 +259,7 @@ def arduino_ready(debug_trace):
 # Loops continuously - won't return - use as a test of the LED strip and 
 # communication between host computer and the attached Arduino before moving
 # onto more complex behaviour.
+# Can be used as an example / reference of some of the functionality that can be used.
 def run_demo():
 	global LEDController
 	random.seed()

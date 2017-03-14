@@ -1,0 +1,103 @@
+#:kivy 1.0
+
+<UIButton@Button>:
+	font_size: 24
+
+<TitleLabel@Label>:
+	font_size: 48
+
+<LargeLabel@Label>:
+	font_size: 32
+
+<MedLabel@Label>:
+	font_size: 24
+
+<SmallLabel@Label>:
+	font_size: 18
+
+<ControllerUI>:
+	id: uiid
+	rows: 5
+	row_force_defaut: True
+	row_default_height: 50
+	padding: 10
+	spacing: 10
+
+	BoxLayout:
+		TitleLabel:
+			text: "LED Full Manual Controller"
+
+	BoxLayout:
+		spacing: 10
+		MedLabel:
+			text: 'Color (hex):'
+		TextInput:
+			id: color_input
+			font_size: 24
+		UIButton:
+			id: color_picker_button
+			text: 'Open Color Picker'
+			on_release: root.openColorPicker()
+
+	BoxLayout:
+		spacing: 10
+		UIButton:
+			id: color_all_button
+			text: 'Set Color All'
+
+	BoxLayout:
+		spacing: 10
+		GridLayout:
+			rows: 2
+			spacing: 2
+
+			MedLabel:
+				text: 'Set Color Range'
+			BoxLayout:
+				SmallLabel:
+					text_size: self.size
+					text:'Start LED:'
+					halign: 'right'
+					size_hint_x: .5
+				TextInput:
+					id: start_led
+					font_size: 16
+					size_hint_x: .8
+				SmallLabel:
+					text_size: self.size
+					text: 'range:'
+					halign: 'right'
+					size_hint_x: .5
+				TextInput:
+					id: led_range
+					font_size: 16
+					size_hint_x: .8
+				UIButton:
+					id: color_range_button
+					text: 'Set'
+					size_hint_x: .5
+
+	BoxLayout:
+		spacing: 10
+		UIButton:
+			text: '9'
+		UIButton:
+			text: '10'
+
+<ColorPickerWindow>:
+	id: cpopup
+	title: 'test'
+	size_hint: .8, .8
+	auto_dismiss: False
+	BoxLayout:
+		id: box
+		spacing: 10
+		padding: 10
+		orientation: 'vertical'
+		ColorPicker:
+			id: cp
+			on_color: print(args)
+		UIButton:
+			size_hint_y: .1
+			text: "OK"
+			on_release: cpopup.close()
