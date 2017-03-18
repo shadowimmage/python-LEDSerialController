@@ -1,8 +1,8 @@
-#! python3
+#!python3
 # LEDController.py 
 # Written by Chase Sawyer
 # February 2017
-# Version 0 - Brand new.
+# Version 0.1 - Commands are finalized, GUI programming underway.
 # 
 # INSTRUCTIONS FOR USE: 
 
@@ -15,40 +15,56 @@ import logging # Program logging
 import configparser # Reading / writing configurations
 import time # for delays, etc.
 
-# UI stuff #####################################################################
-from kivy.app import App
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import ObjectProperty, ListProperty
-from kivy.uix.popup import Popup
-from kivy.uix.colorpicker import ColorPicker
+# GUI things
+import tkinter as tk
+from tkinter import ttk
 
-class ControllerUIApp(App):
-	def build(self):
-		return ControllerUI()
+LARGE_FONT = ("Segoe UI", 14)
 
-class ControllerUI(GridLayout):
-	def openColorPicker(self):
-		color_picker_window = ColorPickerWindow()
-		color_picker_window.open()
+class ControllerUI(tk.Tk):
 
-	def getColorFromPicker(self):
-		pass
+	def __init__(self, *args, **kwargs):
 
+		tk.Tk.__init__(self, *args, **kwargs)
 
-class ColorPickerWindow(Popup):
-	def close(self):
-		for child in self.children:
-			print(child)
-		# color = self.cp.color
-		# print(str(color))
-		self.printColor(self.cp.value)
+		container = tk.Frame(self)
+		container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-	def printColor(instance, value):
-		print("HEX: ", str(instance.hex_color))
+		container.grid_rowconfigure(0, weight=1)
+		container.grid_columnconfigure(0, weight=1)
 
+		self.frames = {}
 
+		for F in (StartPage, StartPage2):
+			frame = F(container, self)
+			self.frames[F] = frame
+			frame.grid(row=0, column=0, sticky="nsew")
+		
+		self.show_frame(StartPage)
 
+	def show_frame(self, cont):
+		frame = self.frames[cont]
+		frame.tkraise()
+
+class StartPage(tk.Frame):
+	def __init__(self, parent, controller):
+		tk.Frame.__init__(self, parent)
+		label = ttk.Label(self, text="hello", font=LARGE_FONT)
+		label.pack(pady=10, padx=10)
+		button_container = tk.Frame(self)
+		button_container.pack()
+		button1 = ttk.Button(text="hello")
+		button1.pack()
+
+class StartPage2(tk.Frame):
+	def __init__(self, parent, controller):
+		tk.Frame.__init__(self, parent)
+		label = ttk.Label(self, text="hello", font=LARGE_FONT)
+		label.pack(pady=10, padx=10)
+		button_container = tk.Frame(self)
+		button_container.pack()
+		button1 = ttk.Button(text="hello")
+		button1.pack()
 
 # LEDController needs to be global so that stop() can access it 
 # at any time when the keyboard interrupt is triggered.
@@ -222,7 +238,6 @@ def setup_log(level):
 
 def main():
 	global LEDController
-	ControllerUIApp().run()
 	# Main control area - interfaces for brightness and color settings
 	if setup():
 		# do the demo patterns program indefinitely.
@@ -352,6 +367,8 @@ def stop():
 
 if __name__ == '__main__':
 	try:
+		app = ControllerUI() 
+		app.mainloop()
 		main()
 	except KeyboardInterrupt: # Called when user ends process with CTRL+C
 		stop()
