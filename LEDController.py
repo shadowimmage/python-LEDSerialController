@@ -18,6 +18,7 @@ import time # for delays, etc.
 # GUI things
 import tkinter as tk
 from tkinter import ttk
+from tkinter.colorchooser import *
 
 LARGE_FONT = ("Segoe UI", 14)
 
@@ -27,7 +28,7 @@ class ControllerUI(tk.Tk):
 
 		tk.Tk.__init__(self, *args, **kwargs)
 
-		container = tk.Frame(self)
+		container = ttk.Frame(self)
 		container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 		container.grid_rowconfigure(0, weight=1)
@@ -35,10 +36,11 @@ class ControllerUI(tk.Tk):
 
 		self.frames = {}
 
-		for F in (StartPage, StartPage2):
-			frame = F(container, self)
-			self.frames[F] = frame
-			frame.grid(row=0, column=0, sticky="nsew")
+		# for F in (StartPage, ): #If there are more than one page, can add them here.
+		F = StartPage
+		frame = F(container, self)
+		self.frames[F] = frame
+		frame.grid(row=0, column=0, sticky="nsew")
 		
 		self.show_frame(StartPage)
 
@@ -46,25 +48,29 @@ class ControllerUI(tk.Tk):
 		frame = self.frames[cont]
 		frame.tkraise()
 
-class StartPage(tk.Frame):
+class StartPage(ttk.Frame):
 	def __init__(self, parent, controller):
 		tk.Frame.__init__(self, parent)
-		label = ttk.Label(self, text="hello", font=LARGE_FONT)
+		label = ttk.Label(self, text="LED Controller", font=LARGE_FONT)
 		label.pack(pady=10, padx=10)
-		button_container = tk.Frame(self)
-		button_container.pack()
-		button1 = ttk.Button(text="hello")
-		button1.pack()
+		button_container = ttk.Frame(self)
+		button_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-class StartPage2(tk.Frame):
-	def __init__(self, parent, controller):
-		tk.Frame.__init__(self, parent)
-		label = ttk.Label(self, text="hello", font=LARGE_FONT)
-		label.pack(pady=10, padx=10)
-		button_container = tk.Frame(self)
-		button_container.pack()
-		button1 = ttk.Button(text="hello")
-		button1.pack()
+		button_container.grid_rowconfigure(3, weight=1)
+		button_container.grid_columnconfigure(3, weight=1)
+
+		button1 = ttk.Button(button_container, text="hello1", command=LEDController.printHello)
+		button1.grid(row=0, column=0)
+		button2 = ttk.Button(button_container, text="Color Picker", command=getColor)
+		button2.grid(row=0, column=1)
+		button3 = ttk.Button(button_container, text="hello3")
+		button3.grid(row=0, column=2)
+		button4 = ttk.Button(button_container, text="hello4")
+		button4.grid(row=1, column=0)
+
+	def getColor():
+		color = askcolor()
+
 
 # LEDController needs to be global so that stop() can access it 
 # at any time when the keyboard interrupt is triggered.
@@ -194,6 +200,10 @@ class LEDController(object):
 		number = min(number, maximum)
 		number = max(number, minimum)
 		return number
+
+	def printHello():
+		print("hello")
+
 
 
 # Read configuration file and set up attributes
