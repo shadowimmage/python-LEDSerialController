@@ -58,9 +58,9 @@ class StartPage(tk.Frame):
 		label.pack(pady=10, padx=10)
 		button_container = tk.Frame(self)
 		button_container.pack()
-		button1 = ttk.Button(text="red")
+		button1 = ttk.Button(text="red", command=lambda: LEDController.setColorAll(0xFF0000, 2000))
 		button1.pack()
-		button2 = ttk.Button(text="Blue")
+		button2 = ttk.Button(text="Blue", command=lambda: LEDController.setColorAll(0x0000FF, 2000))
 		button2.pack()
 
 
@@ -254,7 +254,7 @@ def arduino_ready(debug_trace):
 		return False
 
 
-def controller_update():
+def controller_update(cmd, *args, **kwargs):
 
 
 # Demo code that will go through all the possible command combinations that
