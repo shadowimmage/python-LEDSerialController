@@ -20,6 +20,11 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter.colorchooser import *
 
+
+# LEDController needs to be global so that stop() can access it 
+# at any time when the keyboard interrupt is triggered.
+LEDController = object
+
 LARGE_FONT = ("Segoe UI", 14)
 
 class ControllerUI(tk.Tk):
@@ -63,18 +68,15 @@ class StartPage(ttk.Frame):
 		button1.grid(row=0, column=0)
 		button2 = ttk.Button(button_container, text="Color Picker", command=getColor)
 		button2.grid(row=0, column=1)
-		button3 = ttk.Button(button_container, text="hello3")
+		button3 = ttk.Button(button_container, text="Red", command=lambda: LEDController.setColorAll(0xFF0000, 2000))
 		button3.grid(row=0, column=2)
-		button4 = ttk.Button(button_container, text="hello4")
+		button4 = ttk.Button(button_container, text="Blue", command=lambda: LEDController.setColorAll(0x0000FF, 2000))
 		button4.grid(row=1, column=0)
 
 	def getColor():
 		color = askcolor()
 
 
-# LEDController needs to be global so that stop() can access it 
-# at any time when the keyboard interrupt is triggered.
-LEDController = object
 
 class LEDController(object):
 
@@ -246,18 +248,6 @@ def setup_log(level):
 	logging.basicConfig(filename='LEDControllerLog.log',
 			format='%(asctime)s:%(levelname)s: %(message)s', level=level)
 
-def main():
-	global LEDController
-	# Main control area - interfaces for brightness and color settings
-	if setup():
-		# do the demo patterns program indefinitely.
-		# run_demo()
-		pre_run_commands()
-		while(True):
-			if (arduino_ready('main')):
-				LEDController.setColorAll(0xfcff56, 2000)
-	else:
-		pass
 
 # Runs once from main once setup is complete. Generally can be used to set brightness as
 # a global before going into the main loop of the system - will also be used to set up any 
@@ -266,6 +256,7 @@ def pre_run_commands():
 	global LEDController
 	if (arduino_ready('prerun')):
 		LEDController.setBrightness(LEDController.brightness)
+
 
 # Handles the gathering of the polling status from the connected Arduino / LED driver.
 # debug_trace takes a string that gets passed to the logging module.
@@ -277,6 +268,10 @@ def arduino_ready(debug_trace):
 		return (cmd == "ARDUINOBUSY" and result == False)
 	else:
 		return False
+
+
+def controller_update(cmd, *args, **kwargs):
+
 
 # Demo code that will go through all the possible command combinations that
 # are exposed from the LEDController class and are implemented in the 
@@ -377,8 +372,9 @@ def stop():
 
 if __name__ == '__main__':
 	try:
-		app = ControllerUI() 
-		app.mainloop()
-		main()
+		app = ControllerUI()
+		if setup():
+			pre_run_commands()
+			app.mainloop()
 	except KeyboardInterrupt: # Called when user ends process with CTRL+C
 		stop()
