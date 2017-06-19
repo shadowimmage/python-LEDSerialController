@@ -25,65 +25,11 @@ from tkinter import ttk
 from tkinter.colorchooser import *
 
 
-# LEDController needs to be global so that stop() can access it
-# at any time when the keyboard interrupt is triggered.
-LEDController = object
 
 LARGE_FONT = ("Segoe UI", 14)
 
-class ControllerUI(tk.Tk):
-
-    def __init__(self, *args, **kwargs):
-
-        tk.Tk.__init__(self, *args, **kwargs)
-
-        container = ttk.Frame(self)
-        container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
-
-        self.frames = {}
-
-        # for F in (StartPage, ): #If there are more than one page, can add them here.
-        F = StartPage
-        frame = F(container, self)
-        self.frames[F] = frame
-        frame.grid(row=0, column=0, sticky="nsew")
-
-        self.show_frame(StartPage)
-
-    def show_frame(self, cont):
-        frame = self.frames[cont]
-        frame.tkraise()
-
-class StartPage(ttk.Frame):
-    def get_color():
-        color = askcolor()
-
-    def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
-        label = ttk.Label(self, text="LED Controller", font=LARGE_FONT)
-        label.pack(pady=10, padx=10)
-        button_container = ttk.Frame(self)
-        button_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
-        button_container.grid_rowconfigure(3, weight=1)
-        button_container.grid_columnconfigure(3, weight=1)
-
-        button1 = ttk.Button(button_container, text="hello1", command=LEDController.printHello)
-        button1.grid(row=0, column=0)
-        button2 = ttk.Button(button_container, text="Color Picker", command=get_color)
-        button2.grid(row=0, column=1)
-        button3 = ttk.Button(button_container, text="Red", command=lambda: LEDController.setColorAll(0xFF0000, 2000))
-        button3.grid(row=0, column=2)
-        button4 = ttk.Button(button_container, text="Blue", command=lambda: LEDController.setColorAll(0x0000FF, 2000))
-        button4.grid(row=1, column=0)
-
-
 
 class LEDController(object):
-
     def __init__(self, timeout, port, baudrate, LEDs, brightness):
         self.timeout = timeout
         self.port = port
@@ -93,19 +39,19 @@ class LEDController(object):
         self.c = None
         self.cmdMessenger = None
         self.commands = [["CMDERROR", "s"],
-                        ["SETCOLORALL", "LL"],
-                        ["SETCOLORSINGLE", "bLL"],
-                        ["SETCOLORRANGE", "bbLL"],
-                        ["SETPATTERNRAINBOW", "L"],
-                        ["SETPATTERNTHEATER", "LLL"],
-                        ["SETPATTERNWIPE", "LL"],
-                        ["SETPATTERNSCANNER", "LL"],
-                        ["SETPATTERNFADE", "LLIL"],
-                        ["SETBRIGHTNESSALL", "b"],
-                        ["SETLEDSOFF", "L"],
-                        ["ARDUINOBUSY", "?"],
-                        ["NOCOMMAND", "?"],
-                        ["CMDCONF", "L"]]
+                         ["SETCOLORALL", "LL"],
+                         ["SETCOLORSINGLE", "bLL"],
+                         ["SETCOLORRANGE", "bbLL"],
+                         ["SETPATTERNRAINBOW", "L"],
+                         ["SETPATTERNTHEATER", "LLL"],
+                         ["SETPATTERNWIPE", "LL"],
+                         ["SETPATTERNSCANNER", "LL"],
+                         ["SETPATTERNFADE", "LLIL"],
+                         ["SETBRIGHTNESSALL", "b"],
+                         ["SETLEDSOFF", "L"],
+                         ["ARDUINOBUSY", "?"],
+                         ["NOCOMMAND", "?"],
+                         ["CMDCONF", "L"]]
 
     # Set up the PyCmdMessenger library (which also handles setup of the
     # serial port given and allows structured communication over serial.)
@@ -207,8 +153,65 @@ class LEDController(object):
         number = max(number, minimum)
         return number
 
-    def printHello():
+    def print_hello(self):
         print("hello")
+
+
+# LEDController needs to be global so that stop() can access it
+# at any time when the keyboard interrupt is triggered.
+LEDController = object
+
+
+class ControllerUI(tk.Tk):
+
+    def __init__(self, *args, **kwargs):
+
+        tk.Tk.__init__(self, *args, **kwargs)
+
+        container = ttk.Frame(self)
+        container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        self.frames = {}
+
+        # for F in (StartPage, ): #If there are more than one page, can add them here.
+        F = StartPage
+        frame = F(container, self)
+        self.frames[F] = frame
+        frame.grid(row=0, column=0, sticky="nsew")
+
+        self.show_frame(StartPage)
+
+    def show_frame(self, cont):
+        frame = self.frames[cont]
+        frame.tkraise()
+
+class StartPage(ttk.Frame):
+    global LEDController
+
+    def get_color():
+        color = askcolor()
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        label = ttk.Label(self, text="LED Controller", font=LARGE_FONT)
+        label.pack(pady=10, padx=10)
+        button_container = ttk.Frame(self)
+        button_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        button_container.grid_rowconfigure(3, weight=1)
+        button_container.grid_columnconfigure(3, weight=1)
+
+        button1 = ttk.Button(button_container, text="hello1", command=LEDController.print_hello)
+        button1.grid(row=0, column=0)
+        button2 = ttk.Button(button_container, text="Color Picker", command=self.get_color)
+        button2.grid(row=0, column=1)
+        button3 = ttk.Button(button_container, text="Red", command=lambda: LEDController.setColorAll(0xFF0000, 2000))
+        button3.grid(row=0, column=2)
+        button4 = ttk.Button(button_container, text="Blue", command=lambda: LEDController.setColorAll(0x0000FF, 2000))
+        button4.grid(row=1, column=0)
 
 
 
