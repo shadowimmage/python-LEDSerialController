@@ -8,7 +8,7 @@
 # Set up and flash an Arduino or similar that uses serial / Messenger for control, and hook that up to your machine
 # and get to COM port/address that the serial port binds to.
 # Set up settings in /LEDControllerSettings.ini
-# Fire up this script to start the UI and controlling your LEDs! 
+# Fire up this script to start the UI and controlling your LEDs!
 
 import PyCmdMessenger # for communication with Arduino
 import random #for testing protocol / led colors
@@ -71,6 +71,7 @@ class LEDController(object):
             'SCR': lambda: self.setColorRange(
                 self.cmd_parameters['color1'],
                 self.cmd_parameters['st_led'],
+                self.cmd_parameters['num-steps'],
                 self.cmd_parameters['interval']
             ),
             'SPR': lambda: self.setPatternRainbow(
@@ -103,7 +104,7 @@ class LEDController(object):
             'color1': 0xFFFFFF,
             'color2': 0x000000,
             'st_led-index': 20,
-            'num-steps': 40,
+            'num-steps': 100,
             'brightness': 0,
             'interval': 2000,
         }
@@ -122,7 +123,7 @@ class LEDController(object):
         receivedCmdSet = None
         logging.debug(src + ': getCommand...')
         while (self.cmdMessenger.comm.in_waiting == 0):
-            time.sleep(0.0)
+            time.sleep(0.250)
         receivedCmdSet = self.c.receive()
         logging.debug(src + ': getCommand complete.')
         if (receivedCmdSet[0] == "CMDERROR"):
@@ -159,7 +160,7 @@ class LEDController(object):
         self.c.send("SETPATTERNRAINBOW", max(1, int(update_ms/256)))
         self.getCommandSet('SPR return')
 
-    # Sets the controller to activate a theater chase pattern, consisting of alternating 
+    # Sets the controller to activate a theater chase pattern, consisting of alternating
     # color1 and color2. Update_ms defines how fast the pattern will update.
     def setPatternTheater(self, color1, color2, update_ms):
         color1 = self.constrainColor(color1)
@@ -237,7 +238,7 @@ class LEDController(object):
         logging.debug("repeat called")
         if self.arduino_ready('repeat function'):
             self.cmd_lambdas[self.last_command_lambda]()
-        
+
     def set_command(self, cmd, **kwargs):
         logging.debug("set_command: " + str(cmd))
         self.last_command_lambda = cmd
@@ -246,7 +247,7 @@ class LEDController(object):
 
     def print_hello():
         print("hello")
-        
+
     # Handles the gathering of the polling status from the connected Arduino / LED driver.
     # debug_trace takes a string that gets passed to the logging module.
     def arduino_ready(self, debug_trace):
@@ -286,10 +287,6 @@ class ControllerUI(tk.Tk):
         frame.tkraise()
 
 class StartPage(ttk.Frame):
-
-    def get_color():
-        color = askcolor()
-
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         label = ttk.Label(self, text="LED Controller", font=LARGE_FONT)
@@ -300,14 +297,18 @@ class StartPage(ttk.Frame):
         button_container.grid_rowconfigure(3, weight=1)
         button_container.grid_columnconfigure(3, weight=1)
 
-        button1 = ttk.Button(button_container, text="hello1", command=LEDController.print_hello)
+        button1 = ttk.Button(
+            button_container,
+            text="rainbow",
+            command=lambda: LEDController.set_command('SPR', interval=200)
+        )
         button1.grid(row=0, column=0)
         button2 = ttk.Button(button_container, text="Color Picker", command=self.get_color)
         button2.grid(row=0, column=1)
         button3 = ttk.Button(
             button_container,
             text="Red",
-            command=lambda: LEDController.set_command('SCA', color1=0xFF0000, interval=200)
+            command=lambda: LEDController.set_command('SCA', color1=0xFF0000, interval=1000)
         )
         button3.grid(row=0, column=2)
         button4 = ttk.Button(
@@ -316,6 +317,10 @@ class StartPage(ttk.Frame):
             command=lambda: LEDController.set_command('SCA', color1=0x0000FF, interval=200)
         )
         button4.grid(row=1, column=0)
+
+    def get_color(self):
+        color = askcolor()
+
 
 # Read configuration file and set up attributes
 def setup():
@@ -354,7 +359,7 @@ def setup():
     return True
 
 def setup_log(level):
-    logging.basicConfig(filename='LEDControllerLog.log', 
+    logging.basicConfig(filename='LEDControllerLog.log',
         format='%(asctime)s:%(levelname)s: %(message)s', level=level)
 
 
@@ -371,7 +376,7 @@ def pre_run_commands():
 # the UI/Controller code and the actual controller.
 def update_controller():
     LEDController.repeat()
-    app.after(20, update_controller)
+    app.after(200, update_controller)
 
 
 # Demo code that will go through all the possible command combinations that
@@ -471,7 +476,7 @@ def stop():
     logging.info("Keyboard Interrupt - Shutting down Serial Port.")
     end_program("")
 
-# This needs to be available in the global scope so that update_controller() and main 
+# This needs to be available in the global scope so that update_controller() and main
 # can both find it easily.
 app = ControllerUI()
 
@@ -479,7 +484,7 @@ if __name__ == '__main__':
     try:
         if setup():
             pre_run_commands()
-            app.after(20, update_controller)
+            app.after(500, update_controller)
             print('hello')
             app.mainloop()
     except KeyboardInterrupt: # Called when user ends process with CTRL+C
