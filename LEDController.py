@@ -115,6 +115,12 @@ class LEDController(object):
         self.cmdMessenger = PyCmdMessenger.ArduinoBoard(self.port, baud_rate=self.baudrate)
         self.c = PyCmdMessenger.CmdMessenger(self.cmdMessenger, self.commands)
 
+    # A faster way of checking the serial line for incoming data - use to prevent
+    # calling blocking operations until necessary.
+    def serial_has_waiting(self):
+        """Return true if there is serial data in the input buffer - non-Blocking"""
+        return self.cmdMessenger.comm.in_waiting != 0
+
     # Handler for returned commands from the device connected at the other
     # end of the serial line. Returns the Command that was received.
     # Blocks while waiting for a response over serial by checking for there
@@ -123,7 +129,7 @@ class LEDController(object):
         receivedCmdSet = None
         logging.debug(src + ': getCommand...')
         while (self.cmdMessenger.comm.in_waiting == 0):
-            time.sleep(0.250)
+            time.sleep(0.1)
         receivedCmdSet = self.c.receive()
         logging.debug(src + ': getCommand complete.')
         if (receivedCmdSet[0] == "CMDERROR"):
@@ -245,8 +251,8 @@ class LEDController(object):
         for key, value in kwargs.items():
             self.cmd_parameters[key] = value
 
-    def print_hello():
-        print("hello")
+    def get_interval(self):
+        return self.cmd_parameters['interval']
 
     # Handles the gathering of the polling status from the connected Arduino / LED driver.
     # debug_trace takes a string that gets passed to the logging module.
@@ -303,23 +309,33 @@ class StartPage(ttk.Frame):
             command=lambda: LEDController.set_command('SPR', interval=200)
         )
         button1.grid(row=0, column=0)
-        button2 = ttk.Button(button_container, text="Color Picker", command=self.get_color)
+
+        button2 = ttk.Button(button_container, text="Color Picker", command=lambda: style.configure("Color.TLabel", background=self.get_color()))
         button2.grid(row=0, column=1)
+        
+        style = ttk.Style()
+        style.configure("Color.TLabel", foreground="black", background="green")
+        color_cell = ttk.Label(button_container, style="Color.TLabel", text="test")
+        color_cell.grid(row=0, column=2)
+
         button3 = ttk.Button(
             button_container,
             text="Red",
             command=lambda: LEDController.set_command('SCA', color1=0xFF0000, interval=1000)
         )
-        button3.grid(row=0, column=2)
+        button3.grid(row=1, column=0)
+
         button4 = ttk.Button(
             button_container,
             text="Blue",
             command=lambda: LEDController.set_command('SCA', color1=0x0000FF, interval=200)
         )
-        button4.grid(row=1, column=0)
+        button4.grid(row=1, column=2)
 
     def get_color(self):
         color = askcolor()
+        print(color[1])
+        return color
 
 
 # Read configuration file and set up attributes
@@ -375,7 +391,9 @@ def pre_run_commands():
 # sets up a continuous check on the controller to maintain constant intercommunication between
 # the UI/Controller code and the actual controller.
 def update_controller():
-    LEDController.repeat()
+    """Check the LED Controller, and issue, or re-issue a command as needed"""
+    if LEDController.serial_has_waiting():
+        LEDController.repeat()
     app.after(200, update_controller)
 
 
