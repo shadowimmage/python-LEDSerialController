@@ -310,7 +310,7 @@ class StartPage(ttk.Frame):
         )
         button1.grid(row=0, column=0)
 
-        button2 = ttk.Button(button_container, text="Color Picker", command=lambda: style.configure("Color.TLabel", background=self.get_color()))
+        button2 = ttk.Button(button_container, text="Color Picker", command=lambda: style.configure("Color.TLabel", background=self.get_color(1)))
         button2.grid(row=0, column=1)
         
         style = ttk.Style()
@@ -332,10 +332,9 @@ class StartPage(ttk.Frame):
         )
         button4.grid(row=1, column=2)
 
-    def get_color(self):
+    def get_color(self, desired_tuple):
         color = askcolor()
-        print(color[1])
-        return color
+        return color[desired_tuple]
 
 
 # Read configuration file and set up attributes
@@ -394,7 +393,7 @@ def update_controller():
     """Check the LED Controller, and issue, or re-issue a command as needed"""
     if LEDController.serial_has_waiting():
         LEDController.repeat()
-    app.after(200, update_controller)
+    app.after(75, update_controller)
 
 
 # Demo code that will go through all the possible command combinations that
@@ -402,7 +401,7 @@ def update_controller():
 # Arduino driver for the LED strips.
 # Loops continuously - won't return - use as a test of the LED strip and
 # communication between host computer and the attached Arduino before moving
-# onto more complex behaviour.
+# onto more complex behavior.
 # Can be used as an example / reference of some of the functionality that can be used.
 def run_demo():
     global LEDController
@@ -503,7 +502,6 @@ if __name__ == '__main__':
         if setup():
             pre_run_commands()
             app.after(500, update_controller)
-            print('hello')
             app.mainloop()
     except KeyboardInterrupt: # Called when user ends process with CTRL+C
         stop()
