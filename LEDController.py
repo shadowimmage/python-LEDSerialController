@@ -25,8 +25,6 @@ from tkinter import ttk
 from tkinter.colorchooser import *
 
 
-LARGE_FONT = ("Segoe UI", 14)
-
 # LEDController needs to be global so that stop() can access it
 # at any time when the keyboard interrupt is triggered.
 LEDController = object
@@ -136,6 +134,17 @@ class LEDController(object):
             logging.error("CMDERROR: " + receivedCmdSet[1][0])
         logging.debug(receivedCmdSet)
         return receivedCmdSet
+
+    # Handles the gathering of the polling status from the connected Arduino / LED driver.
+    # debug_trace takes a string that gets passed to the logging module.
+    def arduino_ready(self, debug_trace):
+        receivedCmdSet = LEDController.getCommandSet(debug_trace)
+        if (receivedCmdSet != None):
+            cmd = receivedCmdSet[0]
+            result = receivedCmdSet[1][0]
+            return (cmd == "ARDUINOBUSY" and result == False)
+        else:
+            return False
 
     # Sets all of the LEDs in the strip to the color desired, and for a duration equal to update_ms.
     def setColorAll(self, color, update_ms):
@@ -254,17 +263,10 @@ class LEDController(object):
     def get_interval(self):
         return self.cmd_parameters['interval']
 
-    # Handles the gathering of the polling status from the connected Arduino / LED driver.
-    # debug_trace takes a string that gets passed to the logging module.
-    def arduino_ready(self, debug_trace):
-        receivedCmdSet = LEDController.getCommandSet(debug_trace)
-        if (receivedCmdSet != None):
-            cmd = receivedCmdSet[0]
-            result = receivedCmdSet[1][0]
-            return (cmd == "ARDUINOBUSY" and result == False)
-        else:
-            return False
 
+
+LARGE_FONT = ("Segoe UI", 14)
+MEDIUM_FONT = ("Segoe UI", 10)
 
 class ControllerUI(tk.Tk):
 
@@ -295,40 +297,46 @@ class ControllerUI(tk.Tk):
 class StartPage(ttk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-        label = ttk.Label(self, text="LED Controller", font=LARGE_FONT)
-        label.grid(ipady=10, ipadx=10)
+        page_label = ttk.Label(self, text="LED Controller", font=LARGE_FONT)
+        page_label.grid(ipady=10, ipadx=10)
+        
         button_container = ttk.Frame(self)
         button_container.grid()
-
         button_container.grid_rowconfigure(3, weight=1)
         button_container.grid_columnconfigure(3, weight=1)
 
-        button1 = ttk.Button(
+        column_1_label = ttk.Label(self, text="Patterns", font=MEDIUM_FONT)
+        column_1_label.grid(row=0, column=0)
+
+        column_2_3_label = ttk.Label(self, text="Color Config", font=MEDIUM_FONT)
+        column_2_3_label.grid(row=0, column=1, columnspan=2)
+
+        rainbow_button = ttk.Button(
             button_container,
             text="rainbow",
             command=lambda: LEDController.set_command('SPR', interval=200)
         )
-        button1.grid(row=0, column=0)
+        rainbow_button.grid(row=1, column=0)
 
-        button2 = ttk.Button(button_container, text="Color Picker", command=lambda: style.configure("Color.TLabel", background=self.get_color(1)))
-        button2.grid(row=0, column=1)
+        color_1_choice_button = ttk.Button(button_container, text="Primary Color", command=lambda: style.configure("Color.TLabel", background=self.get_color(1)))
+        color_1_choice_button.grid(row=1, column=1)
         
         style = ttk.Style()
         style.configure("Color.TLabel", foreground="black", background="green")
         color_cell = ttk.Label(button_container, style="Color.TLabel", text="test")
-        color_cell.grid(row=0, column=2)
+        color_cell.grid(row=1, column=2)
 
         button3 = ttk.Button(
             button_container,
             text="Red",
-            command=lambda: LEDController.set_command('SCA', color1=0xFF0000, interval=1000)
+            command=lambda: LEDController.set_command('SCA', color1=16711680, interval=1000)
         )
         button3.grid(row=1, column=0)
 
         button4 = ttk.Button(
             button_container,
             text="Blue",
-            command=lambda: LEDController.set_command('SCA', color1=0x0000FF, interval=200)
+            command=lambda: LEDController.set_command('SCA', color1=255, interval=1000)
         )
         button4.grid(row=1, column=2)
 
