@@ -104,7 +104,7 @@ class LEDController(object):
             'st_led-index': 20,
             'num-steps': 100,
             'brightness': 0,
-            'interval': 2000,
+            'interval': 4000,
         }
 
     # Set up the PyCmdMessenger library (which also handles setup of the
@@ -126,7 +126,7 @@ class LEDController(object):
     def getCommandSet(self, src):
         receivedCmdSet = None
         logging.debug(src + ': getCommand...')
-        while (self.cmdMessenger.comm.in_waiting == 0):
+        while (self.cmdMessenger.comm.in_waiting == 0): # blocking - here as a final check before self.c.receive()
             time.sleep(0.1)
         receivedCmdSet = self.c.receive()
         logging.debug(src + ': getCommand complete.')

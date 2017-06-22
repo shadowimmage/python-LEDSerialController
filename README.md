@@ -1,5 +1,5 @@
 # python-LEDSerialController
-Controller (and GUI?) for talking with an Arduino running some NeoPixel RGB LEDs or some DotStar RGB LEDs - depending on the arduino code that you're running. 
+Controller and GUI for talking with an Arduino running some NeoPixel RGB LEDs or some DotStar RGB LEDs - depending on the arduino code that you're running. 
 ## Current development(s)
 This is currently split into 2 repositories - one for the Arduino code, and this one for the desktop host software.
 Arduino code can currently be found here: https://github.com/shadowimmage/Arduino-NeoPixel-Serial
