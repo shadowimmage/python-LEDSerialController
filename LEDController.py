@@ -18,6 +18,7 @@ import signal # Capture keyboard interrupt
 import logging # Program logging
 import configparser # Reading / writing configurations
 import time # for delays, etc.
+import base64 #for parsing hex color strings to numbers
 
 # GUI things
 import tkinter as tk
@@ -30,6 +31,9 @@ from tkinter.colorchooser import *
 LEDController = object
 
 class LEDController(object):
+    MAX_INTERVAL = 60000
+    MIN_INTERVAL = 0
+
     def __init__(self, timeout, port, baudrate, LEDs, brightness):
         self.timeout = timeout
         self.port = port
@@ -56,9 +60,15 @@ class LEDController(object):
         # last cycle is used as a switch to alternate animations that use
         # other commands as primitives (see Breathe effect)
         self.last_cycle = 0
+        self.brightness_set_cycle = True
+        self.brightness_set_last_cmd = 'Breathe'
         self.cmd_lambdas = {
-            'SCA': lambda: self.setColorAll(
+            'SCA1': lambda: self.setColorAll(
                 self.cmd_parameters['color1'],
+                self.cmd_parameters['interval']
+            ),
+            'SCA2': lambda: self.setColorAll(
+                self.cmd_parameters['color2'],
                 self.cmd_parameters['interval']
             ),
             'SCS': lambda: self.setColorSingle(
@@ -124,24 +134,24 @@ class LEDController(object):
     # Blocks while waiting for a response over serial by checking for there
     # to be waiting data on the computer's serial input buffer.
     def getCommandSet(self, src):
-        receivedCmdSet = None
+        received_cmd_set = None
         logging.debug(src + ': getCommand...')
         while (self.cmdMessenger.comm.in_waiting == 0): # blocking - here as a final check before self.c.receive()
             time.sleep(0.1)
-        receivedCmdSet = self.c.receive()
+        received_cmd_set = self.c.receive()
         logging.debug(src + ': getCommand complete.')
-        if (receivedCmdSet[0] == "CMDERROR"):
-            logging.error("CMDERROR: " + receivedCmdSet[1][0])
-        logging.debug(receivedCmdSet)
-        return receivedCmdSet
+        if (received_cmd_set[0] == "CMDERROR"):
+            logging.error("CMDERROR: " + received_cmd_set[1][0])
+        logging.debug(received_cmd_set)
+        return received_cmd_set
 
     # Handles the gathering of the polling status from the connected Arduino / LED driver.
     # debug_trace takes a string that gets passed to the logging module.
     def arduino_ready(self, debug_trace):
-        receivedCmdSet = LEDController.getCommandSet(debug_trace)
-        if (receivedCmdSet != None):
-            cmd = receivedCmdSet[0]
-            result = receivedCmdSet[1][0]
+        received_cmd_set = self.getCommandSet(debug_trace)
+        if (received_cmd_set != None):
+            cmd = received_cmd_set[0]
+            result = received_cmd_set[1][0]
             return (cmd == "ARDUINOBUSY" and result == False)
         else:
             return False
@@ -206,6 +216,8 @@ class LEDController(object):
     def setBrightness(self, brightness):
         brightness = self.constrain(brightness, 0, 255)
         self.c.send("SETBRIGHTNESSALL", brightness)
+        self.brightness_set_cycle = False # return controller to normal operations once complete
+        self.set_command_brightness()
         self.getCommandSet('Brightness return')
 
     # Description
@@ -241,7 +253,7 @@ class LEDController(object):
 
     # Description
     def constrainColor(self, color):
-        return self.constrain(color, 0x000001, 0xFFFFFF)
+        return self.constrain(color, 0x000000, 0xFFFFFF)
 
     # Description
     def constrain(self, number, minimum, maximum):
@@ -250,6 +262,11 @@ class LEDController(object):
         return number
 
     def repeat(self):
+        """Executes transmission of the command that was set or last set.
+
+        Commands are only executed through this function under normal operating conditions,
+        allowing settings and variables to be modified through the UI semi-asynchronously
+        between command calls"""
         logging.debug("repeat called")
         if self.arduino_ready('repeat function'):
             self.cmd_lambdas[self.last_command_lambda]()
@@ -260,9 +277,46 @@ class LEDController(object):
         for key, value in kwargs.items():
             self.cmd_parameters[key] = value
 
+    def set_command_brightness(self):
+        """Similar to temporarily sets the next command to set the LED brightness.
+        Returns the last_command_lambda to it's previous value after execution."""
+        if self.brightness_set_cycle:
+            # Temporarily interrupt next repeat command to allow a brightness command to be sent
+            self.brightness_set_last_cmd = self.last_command_lambda
+            self.last_command_lambda = 'SBA'
+            ### This is returned to False in the actual set brightness command
+            # self.brightness_set_cycle = False
+        else:
+            # Return last_command_lambda to the last task that was being performed.
+            self.last_command_lambda = self.brightness_set_last_cmd
+            self.brightness_set_cycle = True
+
+    def set_brightness(self, brightness):
+        """Sets the internal brightness storage to the passed value."""
+        brightness = self.constrain(brightness, 0, 255)
+        self.cmd_parameters['brightness'] = brightness
+        self.brightness_set_cycle = True # ensure that brightness setting will happen
+        self.set_command_brightness()
+
     def get_interval(self):
         return self.cmd_parameters['interval']
 
+    def set_interval(self, interval):
+        self.cmd_parameters['interval'] = self.constrain(interval, self.MIN_INTERVAL, self.MAX_INTERVAL)
+
+    def set_color(self, color, color_1_2):
+        """Set one of the LEDController's Color variables
+
+        color: a string representing a hex color value in RGB. "FFFFFF" would  be 100% white
+        color_1_2: an integer selecting which color variable to set to color
+        """
+        color_num = int.from_bytes(base64.b16decode(color, True), byteorder='big')
+        if color_1_2 == 1:
+            self.cmd_parameters['color1'] = color_num
+        elif color_1_2 == 2:
+            self.cmd_parameters['color2'] = color_num
+        else:
+            pass
 
 
 LARGE_FONT = ("Segoe UI", 14)
@@ -282,76 +336,251 @@ class ControllerUI(tk.Tk):
 
         self.frames = {}
 
-        # for F in (StartPage, ): #If there are more than one page, can add them here.
-        F = StartPage
+        # for F in (StartPage, ): #If there are more than one page, can add them as part of a loop here.
+        F = MainUIPage
         frame = F(container, self)
         self.frames[F] = frame
         frame.grid(row=0, column=0, sticky="nsew")
 
-        self.show_frame(StartPage)
+        self.show_frame(F)
 
     def show_frame(self, cont):
         frame = self.frames[cont]
         frame.tkraise()
 
-class StartPage(ttk.Frame):
+class MainUIPage(ttk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         page_label = ttk.Label(self, text="LED Controller", font=LARGE_FONT)
         page_label.grid(ipady=10, ipadx=10)
-        
+
         button_container = ttk.Frame(self)
         button_container.grid()
-        button_container.grid_rowconfigure(3, weight=1)
-        button_container.grid_columnconfigure(3, weight=1)
+        # counters to keep track of element locations on control grid
+        row_counter = 7 #max
+        column_counter = 3 #max
+        button_container.grid_rowconfigure(row_counter, weight=1)
+        button_container.grid_columnconfigure(column_counter, weight=1)
+        row_counter = 0
+        column_counter = 0
 
-        column_1_label = ttk.Label(self, text="Patterns", font=MEDIUM_FONT)
-        column_1_label.grid(row=0, column=0)
+        # ROW 0 - Section Headers
+        pattern_column_label = ttk.Label(button_container, text="Patterns", font=MEDIUM_FONT)
+        pattern_column_label.grid(row=row_counter, column=column_counter)
+        column_counter += 1
 
-        column_2_3_label = ttk.Label(self, text="Color Config", font=MEDIUM_FONT)
-        column_2_3_label.grid(row=0, column=1, columnspan=2)
+        column_2_3_label_colors = ttk.Label(button_container, text="Color Config", font=MEDIUM_FONT)
+        column_2_3_label_colors.grid(row=row_counter, column=column_counter, columnspan=2)
 
-        rainbow_button = ttk.Button(
+        # ROW 1
+        row_counter += 1
+        column_counter = 0
+        rainbow_pattern_button = ttk.Button(
             button_container,
-            text="rainbow",
-            command=lambda: LEDController.set_command('SPR', interval=200)
+            text="Rainbow",
+            command=lambda: LEDController.set_command('SPR')
         )
-        rainbow_button.grid(row=1, column=0)
+        rainbow_pattern_button.grid(row=row_counter, column=column_counter)
+        column_counter += 1
 
-        color_1_choice_button = ttk.Button(button_container, text="Primary Color", command=lambda: style.configure("Color.TLabel", background=self.get_color(1)))
-        color_1_choice_button.grid(row=1, column=1)
-        
-        style = ttk.Style()
-        style.configure("Color.TLabel", foreground="black", background="green")
-        color_cell = ttk.Label(button_container, style="Color.TLabel", text="test")
-        color_cell.grid(row=1, column=2)
-
-        button3 = ttk.Button(
+        color_1_choice_button = ttk.Button(
             button_container,
-            text="Red",
-            command=lambda: LEDController.set_command('SCA', color1=16711680, interval=1000)
+            text="Primary Color",
+            command=lambda: self.apply_colors(self.get_color(1), color_1_label_style, 1)
         )
-        button3.grid(row=1, column=0)
+        color_1_choice_button.grid(row=row_counter, column=column_counter)
+        column_counter += 1
 
-        button4 = ttk.Button(
+        color_1_label_style = ttk.Style()
+        color_1_label_style.configure("Color1.TLabel", foreground="black", background="green")
+        color_1_cell = ttk.Label(button_container, style="Color1.TLabel", text=" Primary ")
+        color_1_cell.grid(row=row_counter, column=column_counter)
+
+        # ROW 2
+        column_counter = 0
+        row_counter += 1
+        theater_pattern_button = ttk.Button(
             button_container,
-            text="Blue",
-            command=lambda: LEDController.set_command('SCA', color1=255, interval=1000)
+            text="Theater",
+            command=lambda: LEDController.set_command('SPT')
         )
-        button4.grid(row=1, column=2)
+        theater_pattern_button.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        color_2_choice_button = ttk.Button(
+            button_container,
+            text="Secondary Color",
+            command=lambda: self.apply_colors(self.get_color(1), color_1_label_style, 2)
+        )
+        color_2_choice_button.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        color_2_label_style = ttk.Style()
+        color_2_label_style.configure("Color2.TLabel", foreground="black", background="green")
+        color_2_cell = ttk.Label(button_container, style="Color2.TLabel", text=" Secondary ")
+        color_2_cell.grid(row=row_counter, column=column_counter)
+
+        # ROW 3
+        column_counter = 0
+        row_counter += 1
+        wipe_pattern_button = ttk.Button(
+            button_container,
+            text="Wipe",
+            command=lambda: LEDController.set_command('SPW')
+        )
+        wipe_pattern_button.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        column_2_3_label_interval = ttk.Label(
+            button_container,
+            text="Interval (ms)",
+            font=MEDIUM_FONT
+        )
+        column_2_3_label_interval.grid(row=row_counter, column=column_counter, columnspan=2)
+
+        # ROW 4
+        column_counter = 0
+        row_counter += 1
+        scanner_pattern_button = ttk.Button(
+            button_container,
+            text="Scanner",
+            command=lambda: LEDController.set_command('SPS')
+        )
+        scanner_pattern_button.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        # The following piece of magic comes from https://stackoverflow.com/questions/4140437/interactively-validating-entry-widget-content-in-tkinter/4140988#4140988
+        # valid percent substitutions (from the Tk entry man page)
+        # note: you only have to register the ones you need; this
+        # example registers them all for illustrative purposes
+        #
+        # %d = Type of action (1=insert, 0=delete, -1 for others)
+        # %i = index of char string to be inserted/deleted, or -1
+        # %P = value of the entry if the edit is allowed
+        # %s = value of entry prior to editing
+        # %S = the text string being inserted or deleted, if any
+        # %v = the type of validation that is currently set
+        # %V = the type of validation that triggered the callback
+        #      (key, focusin, focusout, forced)
+        # %W = the tk name of the widget
+        validate_interval_entry_cmd = (
+            button_container.register(self.validate_interval_entry), '%P', '%s', '%S'
+        )
+        interval_var = tk.StringVar()
+        interval_entry_field = ttk.Entry(
+            button_container,
+            validate="key",
+            validatecommand=validate_interval_entry_cmd,
+            textvariable=interval_var,
+            justify=tk.CENTER,
+            width=10
+        )
+        interval_entry_field.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        interval_apply_button = ttk.Button(
+            button_container,
+            text="Apply",
+            command=lambda: LEDController.set_interval(int(interval_var.get()))
+        )
+        interval_apply_button.grid(row=row_counter, column=column_counter)
+
+        # ROW 5
+        column_counter = 0
+        row_counter += 1
+        fade_pattern_button = ttk.Button(
+            button_container,
+            text="Fade",
+            command=lambda: LEDController.set_command('SPF')
+        )
+        fade_pattern_button.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        column_2_3_label_fine = ttk.Label(button_container, text="Fine Control", font=MEDIUM_FONT)
+        column_2_3_label_fine.grid(row=row_counter, column=column_counter, columnspan=2)
+        column_counter += 1
+
+        # ROW 6
+        column_counter = 0
+        row_counter += 1
+        breathe_pattern_button = ttk.Button(
+            button_container,
+            text="Breathe",
+            command=lambda: LEDController.set_command('Breathe')
+        )
+        breathe_pattern_button.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        set_all_pri_button = ttk.Button(
+            button_container,
+            text="Set All Primary",
+            command=lambda: LEDController.set_command('SCA1')
+        )
+        set_all_pri_button.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        set_all_sec_button = ttk.Button(
+            button_container,
+            text="Set All Secondary",
+            command=lambda: LEDController.set_command('SCA2')
+        )
+        set_all_sec_button.grid(row=row_counter, column=column_counter)
+
+        # ROW 7
+        column_counter = 0
+        row_counter += 1
+        brightness_label = ttk.Label(button_container, text="Brightness", font=MEDIUM_FONT)
+        brightness_label.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        brightness_scaler = tk.Scale(
+            button_container,
+            from_=1,
+            to=255,
+            resolution=10,
+            orient=tk.HORIZONTAL,
+        )
+        brightness_scaler.grid(row=row_counter, column=column_counter)
+        column_counter += 1
+
+        set_brightness_button = ttk.Button(
+            button_container,
+            text="Set",
+            command=lambda: LEDController.set_brightness(int(brightness_scaler.get()))
+        )
+        set_brightness_button.grid(row=row_counter, column=column_counter)
+
+
+    def validate_interval_entry(self, P, s, S):
+        """Only allows ints"""
+        if S in '1234567890':
+            try:
+                int(P)
+                return True
+            except ValueError:
+                return False
+        else:
+            return False
 
     def get_color(self, desired_tuple):
         color = askcolor()
         return color[desired_tuple]
 
+    def apply_colors(self, color_str, label_style, color_1_2):
+        if color_1_2 == 1:
+            label_style.configure("Color1.TLabel", background=color_str)
+            color_str = color_str[1:]
+            LEDController.set_color(color_str, 1)
+        elif color_1_2 == 2:
+            label_style.configure("Color2.TLabel", background=color_str)
+            color_str = color_str[1:]
+            LEDController.set_color(color_str, 2)
 
 # Read configuration file and set up attributes
 def setup():
     global LEDController
-
     config = configparser.ConfigParser()
     try:
-
         config.read_file(open("LEDControllerSettings.ini"))
         timeout = config.getint('LEDControllerSettings', 'Timeout')
         baudrate = config.getint('LEDControllerSettings', 'Baudrate')
@@ -389,6 +618,7 @@ def setup_log(level):
 # Runs once from main once setup is complete. Generally can be used to set brightness as
 # a global before going into the main loop of the system - will also be used to set up any
 # early parameters for UI before going into the main control loop, eg. Networking, alerts, etc.
+#TODO: load UI settings
 def pre_run_commands():
     global LEDController
     if (LEDController.arduino_ready('prerun')):
@@ -497,6 +727,7 @@ def end_program(end_condition):
     logging.info("Program End.")
 
 def stop():
+    #TODO save UI settings for program restart
     print("Keyboard Interrupt - Shutting down...")
     logging.info("Keyboard Interrupt - Shutting down Serial Port.")
     end_program("")
