@@ -62,6 +62,8 @@ class LEDController(object):
         self.last_cycle = 0
         self.brightness_set_cycle = True
         self.brightness_set_last_cmd = 'Breathe'
+        # Store commands as lambdas so that they can be passed parameters
+        # when commands change settings for the controller.
         self.cmd_lambdas = {
             'SCA1': lambda: self.setColorAll(
                 self.cmd_parameters['color1'],
@@ -108,6 +110,8 @@ class LEDController(object):
             'SLO': lambda: self.setLedsOff(self.cmd_parameters['interval']),
             'Breathe': lambda: self.breathe_effect()
         }
+        # Initial settings for commands - these get changed throughout the 
+        # lifecycle of the program.
         self.cmd_parameters = {
             'color1': 0xFFFFFF,
             'color2': 0x000000,
@@ -120,6 +124,7 @@ class LEDController(object):
     # Set up the PyCmdMessenger library (which also handles setup of the
     # serial port given and allows structured communication over serial.)
     def setupCmdMessenger(self):
+        """Initialize the command messenger"""
         self.cmdMessenger = PyCmdMessenger.ArduinoBoard(self.port, baud_rate=self.baudrate)
         self.c = PyCmdMessenger.CmdMessenger(self.cmdMessenger, self.commands)
 
@@ -156,6 +161,8 @@ class LEDController(object):
         else:
             return False
 
+    # --- Command definitions --- Add additional commands below here, integrate command lambdas above.
+        
     # Sets all of the LEDs in the strip to the color desired, and for a duration equal to update_ms.
     def setColorAll(self, color, update_ms):
         color = self.constrainColor(color)
@@ -193,26 +200,29 @@ class LEDController(object):
         self.c.send("SETPATTERNTHEATER", color1, color2, max(1, int(update_ms/self.numLEDs)))
         self.getCommandSet('SPT return')
 
-    # Description
+    # Wipe pattern sets each led in sequence to color given over over the time period.
     def setPatternWipe(self, color, update_ms):
         color = self.constrainColor(color)
         self.c.send("SETPATTERNWIPE", color, max(1, int(update_ms/self.numLEDs)))
         self.getCommandSet('SPW return')
 
-    # Description
+    # Sets LEDs in sequence to give a bright point traveling along the string and back again.
     def setPatternScanner(self, color, update_ms):
         color = self.constrainColor(color)
         self.c.send("SETPATTERNSCANNER", color, max(1, int(update_ms/(2*self.numLEDs))))
         self.getCommandSet('SPS return')
 
-    # Description
+    # Starts at color 1 and then fades to color 2 - a component of the breathe effect (transitions
+    # between color 1 and 2 and then returns to color 1 again)
     def setPatternFade(self, color1, color2, steps, update_ms):
         color1 = self.constrainColor(color1)
         color2 = self.constrainColor(color2)
         self.c.send("SETPATTERNFADE", color1, color2, steps, max(1, int(update_ms/steps)))
         self.getCommandSet('SPF return')
 
-    # Description
+    # Sets the global brightness parameter on the LED controller (Arduino or similar) which will
+    # handle scaling brightness of given color parameters. 
+    # Slow - Should not be used often or for patterning.
     def setBrightness(self, brightness):
         brightness = self.constrain(brightness, 0, 255)
         self.c.send("SETBRIGHTNESSALL", brightness)
@@ -220,16 +230,19 @@ class LEDController(object):
         self.set_command_brightness()
         self.getCommandSet('Brightness return')
 
-    # Description
+    # Turns off LEDs
     def setLedsOff(self, update_ms):
         self.c.send("SETLEDSOFF", update_ms)
         self.getCommandSet('SLO return')
 
-    # Description
+    # Use to send no command at interval - controller will continue last command.
     def setNoCmd(self, flag=True):
         self.c.send("NOCOMMAND", flag)
         self.getCommandSet('SNC return')
 
+    # --- Composite Effect definitions --- Use some of the primitives above in combination
+    # to create more advanced effects.
+        
     # Alternates two colors on a fade effect to give a 'breathing' animation.
     # Uses the same parameters as fade.
     def breathe_effect(self):
@@ -251,6 +264,8 @@ class LEDController(object):
             )
             self.last_cycle -= 1
 
+    # --- Utility definitions ---
+    
     # Description
     def constrainColor(self, color):
         return self.constrain(color, 0x000000, 0xFFFFFF)
@@ -318,6 +333,7 @@ class LEDController(object):
         else:
             pass
 
+# UI ------------------------------
 
 LARGE_FONT = ("Segoe UI", 14)
 MEDIUM_FONT = ("Segoe UI", 10)
